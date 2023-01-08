@@ -2,13 +2,17 @@
   <b-row class="my-5">
     <b-col md="6" class="mx-auto">
       <b-form @submit.prevent="handleSubmit">
-        <b-card title="Singup">
+        <b-card title="Register">
           <b-card-body>
-            <b-form-group :invalid-feedback="invalidName" :state="nameState">
+            <b-form-group
+              :invalid-feedback="invalidName"
+              :state="validateState('name')"
+            >
               <b-form-input
                 v-model="form.name"
                 placeholder="Name"
                 trim
+                ref="name"
               ></b-form-input>
               <b-list-group class="list-unstyled" :flush="true">
                 <b-list-group-item
@@ -21,11 +25,15 @@
               </b-list-group>
             </b-form-group>
 
-            <b-form-group :invalid-feedback="invalidEmail" :state="emailState">
+            <b-form-group
+              :invalid-feedback="invalidEmail"
+              :state="validateState('email')"
+            >
               <b-form-input
                 v-model="form.email"
                 placeholder="Email"
                 trim
+                ref="email"
               ></b-form-input>
               <b-list-group class="list-unstyled" :flush="true">
                 <b-list-group-item
@@ -40,13 +48,14 @@
 
             <b-form-group
               :invalid-feedback="invalidPassword"
-              :state="passwordState"
+              :state="validateState('password')"
             >
               <b-form-input
                 type="password"
                 v-model="form.password"
                 placeholder="Password"
                 trim
+                ref="password"
               ></b-form-input>
               <b-list-group class="list-unstyled" :flush="true">
                 <b-list-group-item
@@ -61,13 +70,14 @@
 
             <b-form-group
               :invalid-feedback="invalidConfirmationPassword"
-              :state="confirmationPasswordState"
+              :state="validateState('password_confirmation')"
             >
               <b-form-input
                 type="password"
                 v-model="form.password_confirmation"
                 placeholder="Confirm Password"
                 trim
+                ref="password_confirmation"
               ></b-form-input>
               <b-list-group class="list-unstyled" :flush="true">
                 <b-list-group-item
@@ -87,7 +97,7 @@
                 class="primary-el w-100"
               >
                 <b-spinner variant="light" small v-if="loading"></b-spinner>
-                <span v-else>Signup</span>
+                <span v-else>Register</span>
               </b-button>
             </b-form-group>
           </b-card-body>
@@ -100,7 +110,7 @@
 <script>
 import { required, email, sameAs, minLength } from "vuelidate/lib/validators";
 export default {
-  name: "Signup",
+  name: "Register",
   data() {
     return {
       form: {
@@ -123,25 +133,44 @@ export default {
     },
   },
   methods: {
+    validateState(name) {
+      const { $dirty, $error } = this.$v.form[name];
+      return $dirty ? !$error : null;
+    },
+    focusOnError() {
+      // 1. Loop the keys
+      for (let key in Object.keys(this.$v.form)) {
+        // 2. Extract the input
+        const input = Object.keys(this.$v.form)[key];
+        // // 3. Remove special properties
+        if (input.includes("$")) return false;
+
+        // // 4. Check for errors
+        if (this.$v.form[input].$error) {
+          // 5. Focus the input with the error
+          if (this.$refs[input]?.$el) {
+            this.$refs[input].$el.focus();
+          } else {
+            this.$refs[input].focus();
+          }
+
+          // 6. Break out of the loop
+          break;
+        }
+      }
+    },
     handleSubmit() {
       this.$v.$touch();
-      if (this.$v.$invalid) {
-        this.$nextTick(() => {
-          this.scrollToError();
-        });
-        return;
+      if (!this.$v.form.$anyError) {
+        this.register();
+      } else {
+        this.focusOnError();
       }
-      this.signUp();
     },
-    scrollToError() {
-      let dom = document.querySelector(".is-invalid");
-      let top = dom.offsetTop;
-      window.scrollTo(0, top);
-    },
-    signUp() {
+    register() {
       this.loading = true;
       this.$axios
-        .post("auth/signup", this.form)
+        .post("auth/register", this.form)
         .then((response) => {
           this.loading = false;
           this.submitted = true;
@@ -151,31 +180,21 @@ export default {
         .catch(({ response }) => {
           this.loading = false;
           this.submitted = true;
-          this.errors = response.data;
+          if (response.data.errors) {
+            this.errors = response.data.errors;
+          } else {
+            this.$noty.error(response.data.message);
+          }
         });
     },
   },
   computed: {
-    nameState() {
-      let state = true;
-      if (this.errors.name || this.$v.form.name.$error) {
-        state = false;
-      }
-      return state && this.submitted;
-    },
     invalidName() {
       let message = "";
       if (!this.$v.form.name.required) {
         message = "Name is required!";
       }
       return message;
-    },
-    emailState() {
-      let state = true;
-      if (this.errors.email || this.$v.form.email.$error) {
-        state = false;
-      }
-      return state && this.submitted;
     },
     invalidEmail() {
       let message = "";
@@ -186,13 +205,6 @@ export default {
       }
       return message;
     },
-    passwordState() {
-      let state = true;
-      if (this.errors.password || this.$v.form.password.$error) {
-        state = false;
-      }
-      return state && this.submitted;
-    },
     invalidPassword() {
       let message = "";
       if (!this.$v.form.password.minLength) {
@@ -201,16 +213,6 @@ export default {
         message = "Password is required!";
       }
       return message;
-    },
-    confirmationPasswordState() {
-      let state = true;
-      if (
-        this.errors.password_confirmation ||
-        this.$v.form.password_confirmation.$error
-      ) {
-        state = false;
-      }
-      return state && this.submitted;
     },
     invalidConfirmationPassword() {
       let message = "";

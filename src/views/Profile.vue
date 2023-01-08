@@ -4,11 +4,15 @@
       <b-form @submit.prevent="handleSubmit">
         <b-card title="Profile">
           <b-card-body>
-            <b-form-group :invalid-feedback="invalidName" :state="nameState">
+            <b-form-group
+              :invalid-feedback="invalidName"
+              :state="validateState('name')"
+            >
               <b-form-input
                 v-model="form.name"
                 placeholder="Name"
                 trim
+                ref="name"
               ></b-form-input>
               <b-list-group class="list-unstyled" :flush="true">
                 <b-list-group-item
@@ -27,13 +31,14 @@
 
             <b-form-group
               :invalid-feedback="invalidPassword"
-              :state="passwordState"
+              :state="validateState('password')"
             >
               <b-form-input
                 type="password"
                 v-model="form.password"
                 placeholder="Password"
                 trim
+                ref="password"
               ></b-form-input>
               <b-list-group class="list-unstyled" :flush="true">
                 <b-list-group-item
@@ -48,13 +53,14 @@
 
             <b-form-group
               :invalid-feedback="invalidConfirmationPassword"
-              :state="confirmationPasswordState"
+              :state="validateState('password_confirmation')"
             >
               <b-form-input
                 type="password"
                 v-model="form.password_confirmation"
                 placeholder="Confirm Password"
                 trim
+                ref="password_confirmation"
               ></b-form-input>
               <b-list-group class="list-unstyled" :flush="true">
                 <b-list-group-item
@@ -122,27 +128,46 @@ export default {
     this.getUserDetails();
   },
   methods: {
+    validateState(name) {
+      const { $dirty, $error } = this.$v.form[name];
+      return $dirty ? !$error : null;
+    },
+    focusOnError() {
+      // 1. Loop the keys
+      for (let key in Object.keys(this.$v.form)) {
+        // 2. Extract the input
+        const input = Object.keys(this.$v.form)[key];
+        // // 3. Remove special properties
+        if (input.includes("$")) return false;
+
+        // // 4. Check for errors
+        if (this.$v.form[input].$error) {
+          // 5. Focus the input with the error
+          if (this.$refs[input]?.$el) {
+            this.$refs[input].$el.focus();
+          } else {
+            this.$refs[input].focus();
+          }
+
+          // 6. Break out of the loop
+          break;
+        }
+      }
+    },
+    handleSubmit() {
+      this.$v.$touch();
+      if (!this.$v.form.$anyError) {
+        this.updateProfile();
+      } else {
+        this.focusOnError();
+      }
+    },
     getUserDetails() {
-      this.$axios.get("auth/me").then((response) => {
+      this.$axios.get("auth/profile").then((response) => {
         const { data } = response.data;
         this.form.name = data.name;
         this.email = data.email;
       });
-    },
-    handleSubmit() {
-      this.$v.$touch();
-      if (this.$v.$invalid) {
-        this.$nextTick(() => {
-          this.scrollToError();
-        });
-        return;
-      }
-      this.updateProfile();
-    },
-    scrollToError() {
-      let dom = document.querySelector(".is-invalid");
-      let top = dom.offsetTop;
-      window.scrollTo(0, top);
     },
     updateProfile() {
       this.loading = true;
@@ -164,18 +189,15 @@ export default {
         .catch(({ response }) => {
           this.loading = false;
           this.submitted = true;
-          this.errors = response.data;
+          if (response.data.errors) {
+            this.errors = response.data.errors;
+          } else {
+            this.$noty.error(response.data.message);
+          }
         });
     },
   },
   computed: {
-    nameState() {
-      let state = true;
-      if (this.errors.name || this.$v.form.name.$error) {
-        state = false;
-      }
-      return state && this.submitted;
-    },
     invalidName() {
       let message = "";
       if (!this.$v.form.name.required) {
@@ -183,29 +205,12 @@ export default {
       }
       return message;
     },
-    passwordState() {
-      let state = true;
-      if (this.errors.password || this.$v.form.password.$error) {
-        state = false;
-      }
-      return state && this.submitted;
-    },
     invalidPassword() {
       let message = "";
       if (!this.$v.form.password.minLength) {
         message = "Password min length is 8!";
       }
       return message;
-    },
-    confirmationPasswordState() {
-      let state = true;
-      if (
-        this.errors.password_confirmation ||
-        this.$v.form.password_confirmation.$error
-      ) {
-        state = false;
-      }
-      return state && this.submitted;
     },
     invalidConfirmationPassword() {
       let message = "";

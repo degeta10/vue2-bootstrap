@@ -4,11 +4,15 @@
       <b-form @submit.prevent="handleSubmit">
         <b-card title="Login">
           <b-card-body>
-            <b-form-group :invalid-feedback="invalidEmail" :state="emailState">
+            <b-form-group
+              :invalid-feedback="invalidEmail"
+              :state="validateState('email')"
+            >
               <b-form-input
                 v-model="form.email"
                 placeholder="Email"
                 trim
+                ref="email"
               ></b-form-input>
               <b-list-group class="list-unstyled" :flush="true">
                 <b-list-group-item
@@ -22,13 +26,14 @@
             </b-form-group>
             <b-form-group
               :invalid-feedback="invalidPassword"
-              :state="passwordState"
+              :state="validateState('password')"
             >
               <b-form-input
                 type="password"
                 v-model="form.password"
                 placeholder="Password"
                 trim
+                ref="password"
               ></b-form-input>
               <b-list-group class="list-unstyled" :flush="true">
                 <b-list-group-item
@@ -79,20 +84,39 @@ export default {
     },
   },
   methods: {
+    validateState(name) {
+      const { $dirty, $error } = this.$v.form[name];
+      return $dirty ? !$error : null;
+    },
+    focusOnError() {
+      // 1. Loop the keys
+      for (let key in Object.keys(this.$v.form)) {
+        // 2. Extract the input
+        const input = Object.keys(this.$v.form)[key];
+        // // 3. Remove special properties
+        if (input.includes("$")) return false;
+
+        // // 4. Check for errors
+        if (this.$v.form[input].$error) {
+          // 5. Focus the input with the error
+          if (this.$refs[input]?.$el) {
+            this.$refs[input].$el.focus();
+          } else {
+            this.$refs[input].focus();
+          }
+
+          // 6. Break out of the loop
+          break;
+        }
+      }
+    },
     handleSubmit() {
       this.$v.$touch();
-      if (this.$v.$invalid) {
-        this.$nextTick(() => {
-          this.scrollToError();
-        });
-        return;
+      if (!this.$v.form.$anyError) {
+        this.login();
+      } else {
+        this.focusOnError();
       }
-      this.login();
-    },
-    scrollToError() {
-      let dom = document.querySelector(".is-invalid");
-      let top = dom.offsetTop;
-      window.scrollTo(0, top);
     },
     login() {
       this.loading = true;
@@ -110,18 +134,15 @@ export default {
         .catch(({ response }) => {
           this.loading = false;
           this.submitted = true;
-          this.errors = response.data.errors;
+          if (response.data.errors) {
+            this.errors = response.data.errors;
+          } else {
+            this.$noty.error(response.data.message);
+          }
         });
     },
   },
   computed: {
-    emailState() {
-      let state = true;
-      if (this.errors.email || this.$v.form.email.$error) {
-        state = false;
-      }
-      return state && this.submitted;
-    },
     invalidEmail() {
       let message = "";
       if (!this.$v.form.email.email) {
@@ -130,13 +151,6 @@ export default {
         message = "Email is required!";
       }
       return message;
-    },
-    passwordState() {
-      let state = true;
-      if (this.errors.password || this.$v.form.password.$error) {
-        state = false;
-      }
-      return state && this.submitted;
     },
     invalidPassword() {
       let message = "";

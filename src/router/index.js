@@ -3,17 +3,14 @@ import VueRouter from "vue-router";
 import store from "../store/index";
 
 import Login from "../views/Login";
-import Signup from "../views/Signup";
+import Register from "../views/Register";
 import Profile from "../views/Profile";
 import Home from "../views/Home";
 
 Vue.use(VueRouter);
 
 const isGuest = (to, from, next) => {
-  if (
-    !store.getters["auth/isAuthenticated"] &&
-    store.getters["auth/refreshToken"] === ""
-  ) {
+  if (!store.getters["auth/isAuthenticated"]) {
     next();
     return;
   }
@@ -21,10 +18,7 @@ const isGuest = (to, from, next) => {
 };
 
 const isAuthenticated = (to, from, next) => {
-  if (
-    store.getters["auth/isAuthenticated"] ||
-    store.getters["auth/refreshToken"] !== ""
-  ) {
+  if (store.getters["auth/isAuthenticated"]) {
     next();
     return;
   }
@@ -39,9 +33,9 @@ const routes = [
     beforeEnter: isGuest,
   },
   {
-    path: "/signup",
-    component: Signup,
-    name: "signup",
+    path: "/register",
+    component: Register,
+    name: "register",
     beforeEnter: isGuest,
   },
   {

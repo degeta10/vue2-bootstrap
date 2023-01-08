@@ -12,8 +12,8 @@
           <b-nav-item :to="{ name: 'login' }" v-if="!isAuthenticated"
             ><b>Login</b></b-nav-item
           >
-          <b-nav-item :to="{ name: 'signup' }" v-if="!isAuthenticated"
-            ><b>Signup</b></b-nav-item
+          <b-nav-item :to="{ name: 'register' }" v-if="!isAuthenticated"
+            ><b>Register</b></b-nav-item
           >
           <b-nav-item-dropdown right v-else>
             <template #button-content>
